@@ -2,7 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests;
 use Illuminate\Http\Request;
+use Auth;
+use App\User;
+use App\Oders;
+use DB;
 
 class HomeController extends Controller
 {
@@ -23,6 +28,15 @@ class HomeController extends Controller
      */
     public function index()
     {
-        return view('home');
+        $oder = DB::table('oders')->where('c_id','=',Auth::user()->id)->get();
+        // print_r($oder); exit();
+        return view('member.user',['data'=>$oder]);
     }
+    public function edit()
+   {
+        $id = Auth::user()->id;
+        $data = User::where('id',$id)->first();
+        return view('member.edit',['data'=>$data]);
+   }
+   
 }
