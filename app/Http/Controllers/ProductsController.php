@@ -18,6 +18,7 @@ use App\Country;
 use App\Order;
 use App\OrdersProduct;
 use App\DeliveryAddress;
+use Log;
 
 class ProductsController extends Controller
 {
@@ -543,6 +544,162 @@ class ProductsController extends Controller
         return view('products.checkout')->with(compact('userDetails','countries','shippingDetails'));
 
     }
+
+    public function paymentComponent(Request $request){
+        session(['payment_method' => $request->payment_method]); 
+        return session('payment_method');
+    }
+
+    //get default payment method
+    public function getPaymentMethods(){
+        $result = array();
+        $payments_setting = DB::table('payments_setting')->get();
+
+        $cod_description = DB::table('payment_description')->where([['payment_name','Cash On Delivery'],['language_id','1']])->get();
+        $cod = array(
+            'environment' => '', 
+            'name' => $cod_description[0]->name, 
+            'public_key' => '',
+            'active' => $payments_setting[0]->cash_on_delivery,
+            'payment_currency' => $payments_setting[0]->payment_currency,
+            'payment_method'=>'cash_on_delivery'
+        );
+
+        if($payments_setting[0]->momopay_enviroment=='0'){
+            $momopay_enviroment = 'Test';
+        }else{
+            $momopay_enviroment = 'Live';
+        }
+
+        $momopay_description = DB::table('payment_description')->where([['payment_name','momopay'],['language_id','1']])->get();
+        $momopay_data = $this->getMomoDataApi($payments_setting[0]);
+        session(['momopay_data' => $momopay_data]);
+        $momopay = array(
+            'environment' => $momopay_enviroment,
+            'name' => $momopay_description[0]->name,
+            'active' => $payments_setting[0]->momopay_active,
+            'payment_method' => 'momopay',
+            'payment_currency' => 'vnd',
+
+            'momopay_apipoint' => $payments_setting[0]->momopay_apipoint,
+            'momopay_data' => $momopay_data,
+        );
+
+        // nganluong
+        $nganluongpay = [
+            'active' => '1',
+            'payment_currency' => 'vnd',
+            'payment_method' => 'nganluongpay',
+            'nganluong_apipoint' => $this->getNganLuongCheckoutLink($payments_setting[0])
+        ];
+        $result[0] = $cod;
+        $result[1] = $momopay;
+        $result[2] = $nganluongpay;
+        return $result;
+    }
+
+    private function getNganLuongCheckoutLink($payment_setting) {
+        $shipping_address = session('shipping_address');
+        $products_price = session('total_price');
+        $buyer_info = data_get($shipping_address, 'firstname') . '*|*' . '*|*' . data_get($shipping_address, 'delivery_phone') . '*|*' . data_get($shipping_address, 'street');
+
+        $nganluong_data = [
+            'merchant_site_code' => $payment_setting->nganluongpay_merchantsitecode,
+            'return_url' => url('/checkout/callback/nganluong'),
+            'receiver' => $payment_setting->nganluongpay_receiver,
+            'transaction_info' => 'transactioninfo',
+            'order_code' => 'order' . time(),
+            'price' => strval(intval($products_price)),
+            'currency' => 'vnd',
+            'quantity' => '1',
+            'tax' => '0',
+            'discount' => '0',
+            'fee_cal' => '0',
+            'fee_shipping' => '0',
+            'order_description' => 'orderdescription',
+            'buyer_info' => $buyer_info,
+            'affiliate_code' => '',
+            'lang' => 'vi',
+            'cancel_url' => url('/checkout/callback/nganluong'),
+            'notify_url' => url('/checkout/callback/nganluong')
+        ];
+
+        $secure_pass = $payment_setting->nganluongpay_securepass;
+        $secure_code = [
+            $nganluong_data['merchant_site_code'],
+            $nganluong_data['return_url'],      
+            $nganluong_data['receiver'],
+            $nganluong_data['transaction_info'],
+            $nganluong_data['order_code'],
+            $nganluong_data['price'],
+            $nganluong_data['currency'] ,
+            $nganluong_data['quantity'],
+            $nganluong_data['tax'],
+            $nganluong_data['discount'],
+            $nganluong_data['fee_cal'],
+            $nganluong_data['fee_shipping'],
+            $nganluong_data['order_description'],
+            $nganluong_data['buyer_info'],
+            $nganluong_data['affiliate_code'],
+            $secure_pass
+        ];
+
+        $nganluong_data['secure_code'] = MD5(implode(' ', $secure_code));
+
+        $query = [];
+        foreach ($nganluong_data as $k => $v) {
+            $query[] = "$k=$v"; 
+        }
+
+        return $payment_setting->nganluongpay_apipoint . '?'.implode('&', $query);
+    }
+
+    public function getMomoDataApi($payment_setting) {
+        $secretKey = $payment_setting->momopay_secretkey;
+        $partnerCode = $payment_setting->momopay_partnercode;
+        $accessKey = $payment_setting->momopay_accesskey;
+
+        $requestId = 'request-' . time();
+        $amount = strval(intval(session('total_price')));
+        $orderId = 'order-' . time();
+        $orderInfo = 'Momo pay';
+        $returnUrl = $notifyUrl = url('/checkout/momo/callback');
+        $extraData = "";
+        $requestType = "captureMoMoWallet";
+        $str = "partnerCode=$partnerCode&accessKey=$accessKey&requestId=$requestId&amount=$amount&orderId=$orderId&orderInfo=$orderInfo&returnUrl=$returnUrl&notifyUrl=$notifyUrl&extraData=$extraData";
+        $signature = hash_hmac('sha256', $str, $secretKey);
+        return [
+            "accessKey"     => $accessKey,
+            "partnerCode"   => $partnerCode,
+            "requestType"   => $requestType,
+            "notifyUrl"     => $notifyUrl,
+            "returnUrl"     => $returnUrl,
+            "orderId"       => $orderId,
+            "amount"        => $amount,
+            "orderInfo"     => $orderInfo,
+            "requestId"     => $requestId,
+            "extraData"     => $extraData,
+            "signature"     => $signature
+        ];
+    }
+
+    public function momoCallback(Request $request) {
+        session()->forget('momopay_data');
+        if ($this->checkSingatureMomoCallback($request)) {
+            return $this->placeOrder($request);
+        }
+        return redirect('/');
+    }
+
+    public function nganluongCallback(Request $request)
+    {
+        log::info($request);
+        if ($this->checkSecureNganLuongCallback($request)) {
+                return $this->placeOrder($request);
+            }
+        return redirect('/');
+    }
+
     public function orderReview(Request $request){
         $user_id = Auth::user()->id;
         $user_email = Auth::user()->email;
@@ -552,22 +709,61 @@ class ProductsController extends Controller
 
         $userCart = DB::table('cart')->where(['user_email'=>$user_email])->get();
         foreach($userCart as $key =>$product){
-        //echo $product->product_id;
         $productDetails = Product::where('id',$product->product_id)->first();
         $userCart[$key]->image = $productDetails->image;
         }
-        //echo "<pre>";print_r($userCart);die;
-        return view('products.order_review')->with(compact('userDetails','shippingDetails','userCart'));
+        //payment methods
+        $result['payment_methods'] = $this->getPaymentMethods();
+        return view('products.order_review')->with(compact('userDetails','shippingDetails','userCart','result'));
     }
+
+    private function checkSingatureMomoCallback($request) {
+
+        $payments_setting = DB::table('payments_setting')->get();
+        $secretKey = $payments_setting[0]->momopay_secretkey;
+        $arr = [
+            'partnerCode', 'accessKey', 'requestId', 'amount', 'orderId', 'orderInfo',
+            'orderType', 'transId', 'message', 'localMessage',
+            'responseTime', 'errorCode', 'payType', 'extraData'
+        ];
+        $signature = [];
+        foreach ($arr as $k) {
+            $signature[] = $k.'='.$request->get($k);
+        }
+        $signature = hash_hmac('sha256', implode('&', $signature), $secretKey);
+        return $signature == $request->get('signature');
+    }
+
+    private function checkSecureNganLuongCallback($request) {
+        $payments_setting = DB::table('payments_setting')->get();
+        $merchant_site_code = $payments_setting[0]->nganluongpay_merchantsitecode;
+        $secure_pass = $payments_setting[0]->nganluongpay_securepass;
+
+        $verify_secure_code = [
+            $request->get('transaction_info'),
+            $request->get('order_code'),
+            $request->get('price'),
+            $request->get('payment_id'),
+            $request->get('payment_type'),
+            $request->get('error_text'),
+            $merchant_site_code,
+            $secure_pass
+        ];
+        $verify_secure_code = md5(' '.implode(' ', $verify_secure_code));
+        return $verify_secure_code == $request->get('secure_code');
+    }
+
     public function placeOrder(Request $request){
-        if($request->isMethod('post')){
+        
+        // if($request->isMethod('post')){
+
             $data = $request->all();
             $user_id = Auth::user()->id;
             $user_email = Auth::user()->email;
 
-             //Get Shipping Detail for User
+            //Get Shipping Detail for User
             $shippingDetails = DeliveryAddress::where(['user_email'=>$user_email])->first();
-            //echo "<pre>";print_r($data);die;
+            
             if(empty(Session::get('CouponCode'))){
                 $coupon_code = '';
             }else{
@@ -578,6 +774,9 @@ class ProductsController extends Controller
             }else{
                 $coupon_amount =Session::get('CouponAmount');
             }
+            
+            $payment_method = session('payment_method');  
+  
             $order = new Order;
             $order->user_id = $user_id;
             $order->user_email = $user_email;
@@ -591,8 +790,8 @@ class ProductsController extends Controller
             $order->coupon_code = $coupon_code;
             $order->coupon_amount = $coupon_amount;
             $order->order_status = "New";
-            $order->payment_method = $data['payment_method'];
-            $order->grand_total = $data['grand_total'];
+            $order->payment_method = $payment_method;
+            $order->grand_total = Session::get('total_price');
             $order->save();
 
             $order_id = DB::getPdo()->lastInsertId();
@@ -611,18 +810,8 @@ class ProductsController extends Controller
                 $cartPro->product_qty = $pro->quantity;
                 $cartPro->save();
             }
-                            
-            Session::put('order_id',$order_id);
-            Session::put('grand_total',$data['grand_total']);
-            if($data['payment_method']=="COD"){
-            //COD - Redirect user to thanks page after saving order
-            return redirect('/thanks');
-            }else{
-            //Paypal - Redirect user to Paypal page after saving order
-            return redirect('/paypal');  
-            }
-            
-        }
+            return redirect('/');  
+        // }
     }
     public function thanks(Request $request){
         $user_email = Auth::user()->email;
@@ -632,8 +821,6 @@ class ProductsController extends Controller
     public function userOrders(){
         $user_id = Auth::user()->id;
         $orders = Order::with('orders')->where('user_id',$user_id)->orderBy('id','DESC')->get();
-        //$orders = json_decode(json_encode($orders));
-        //echo "<pre>";print_r($orders);
 
         return view('orders.user_orders')->with(compact('orders'));
     }
@@ -641,7 +828,6 @@ class ProductsController extends Controller
         $user_id = Auth::user()->id;
         $orderDetails = Order::with('orders')->where('id',$order_id)->first();
         $orderDetails = json_decode(json_encode($orderDetails));
-        //echo "<pre>";print_r($orderDetails);die;
         return view('orders.user_order_details')->with(compact('orderDetails','userCart'));
     }
     public function paypal(Request $request){
@@ -653,7 +839,6 @@ class ProductsController extends Controller
     public function viewOrders(){
         $orders = Order::with('orders')->orderBy('id','DESC')->get();
         $orders = json_decode(json_encode($orders));
-        //echo "<pre>";print_r($orders);die;
         return view('admin.orders.view_orders')->with(compact('orders'));
     }
     public function viewOrderDetails($order_id){

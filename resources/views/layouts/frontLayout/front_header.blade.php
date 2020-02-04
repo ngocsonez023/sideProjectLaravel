@@ -35,7 +35,7 @@ $mainCategories = Controller::mainCategories();
         <div class="row">
             <div class="col-sm-4">
                 <div class="logo pull-left">
-                    <a href="{{url('http://hyper-mart.me')}}">
+                    <a href="{{url('')}}">
                         <img src="{{url('/images/frontend_img/home/logo5.png')}}" alt="" /></a>
                 </div>
                 <div class="btn-group pull-right"></div>
@@ -44,7 +44,7 @@ $mainCategories = Controller::mainCategories();
                 <div class="shop-menu pull-right">
                     <ul class="nav navbar-nav">
                         <li><a href="{{url('/orders')}}"><i class="fa fa-crosshairs"></i> Order</a></li>
-                        <li><a href="{{url('/login-register')}}"><i class="fa fa-shopping-cart"></i> Cart</a></li>
+                        <li><a href="{{url('/cart')}}"><i class="fa fa-shopping-cart"></i> Cart</a></li>
                         @if(empty(Auth::check()))
                             <li><a href="{{url('/login-register')}}"><i class="fa fa-lock"></i> Login</a></li>
                         @else
