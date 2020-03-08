@@ -273,7 +273,9 @@ $(document).on('click','.deleteRecord',function(e){
 //sweet Alert for delete alt Image
 $(document).on('click','.deleteRecord',function(e){
 	var id = $(this).attr('rel');
+	console.log('id',id);
 	var deleteFunction = $(this).attr('rel1');
+	var url = $(this).attr('url');
 	swal({
 	  title: "Are you sure?",
 	  text: "Your will not be able to recover this Record Again!",
@@ -284,7 +286,7 @@ $(document).on('click','.deleteRecord',function(e){
 	  closeOnConfirm: false
 	},
 	function(){
-		window.location.href="/admin/"+deleteFunction+"/"+id;
+		window.location.href= url + '/admin/'+deleteFunction+'/'+id;
 	});
 });
 

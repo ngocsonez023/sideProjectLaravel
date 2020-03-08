@@ -68,7 +68,7 @@
       <a href="{{url('/admin/edit-product/'.$product->id)}}" class="btn btn-primary btn-mini" title="Edit Products">Edit</a>
       <a href="{{url('/admin/add-attributes/'.$product->id)}}" class="btn btn-info btn-mini" title="Add Attributes">Add</a>
       <a href="{{url('/admin/add-images/'.$product->id)}}" class="btn btn-warning btn-mini" title="Add Images">Add Img</a>
-    <a  rel="{{$product->id}}" rel1="delete-product"
+    <a  rel="{{$product->id}}" rel1="delete-product" url="{{url('')}}"
       href="javascript:" class="btn btn-danger btn-mini deleteRecord" title="Delete Products">Delete
     </a>
     </div>

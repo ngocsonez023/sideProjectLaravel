@@ -490,6 +490,7 @@ class ProductsController extends Controller
         $user_email = Auth::user()->email;
         $userDetails = User::find($user_id);
         $countries = Country::get();
+
         //Check if shipping address exists
         $shippingCount = DeliveryAddress::where('user_id',$user_id)->count();
         $shippingDetails = array();
@@ -502,47 +503,46 @@ class ProductsController extends Controller
         DB::table('cart')->where(['session_id'=>$session_id])->update(['user_email'=>$user_email]);
         
         if($request->isMethod('post')){
-        $data = $request->all();
-        //echo "<pre>";print_r($data);die;
-        //Return to checkout page if any field is empty
-        if(empty($data['billing_name']) ||empty($data['billing_address'])
-        ||empty($data['billing_city']) ||empty($data['billing_state'])
-        ||empty($data['billing_country']) ||empty($data['billing_pincode'])
-        ||empty($data['billing_mobile']) ||empty($data['shipping_name'])
-        ||empty($data['shipping_address']) ||empty($data['shipping_city'])
-        ||empty($data['shipping_state']) ||empty($data['shipping_country'])
-        ||empty($data['shipping_pincode']) ||empty($data['shipping_mobile'])){
-          return redirect()->back()->with('flash_message_error','Please Fill all 
-          Fields to Continue!!');
-        }
-        //Update User Details
-        User::where('id',$user_id)->update(['name'=>$data['billing_name'],'address'=>$data['billing_address'],
-        'city'=>$data['billing_city'],'state'=>$data['billing_state'],'pincode'=>$data['billing_pincode'],
-        'country'=>$data['billing_country'],'mobile'=>$data['billing_mobile']]);
+            $data = $request->all();
+            //echo "<pre>";print_r($data);die;
+            //Return to checkout page if any field is empty
+            if(empty($data['billing_name']) ||empty($data['billing_address'])
+            ||empty($data['billing_city']) ||empty($data['billing_state'])
+            ||empty($data['billing_country'])||empty($data['billing_mobile']) ||empty($data['shipping_name'])
+            ||empty($data['shipping_address']) ||empty($data['shipping_city'])
+            ||empty($data['shipping_state']) ||empty($data['shipping_country'])
+            ||empty($data['shipping_mobile'])){
+                return redirect()->back()->with('flash_message_error','Please Fill all Fields to Continue!!');
+            }
+            //Update User Details
+            User::where('id',$user_id)->update(['name'=>$data['billing_name'],'address'=>$data['billing_address'],
+            'city'=>$data['billing_city'],'state'=>$data['billing_state'],'pincode'=>$data['billing_pincode'],
+            'country'=>$data['billing_country'],'mobile'=>$data['billing_mobile']]);
 
-        if($shippingCount>0){
-          //Update Shipping Address
-          DeliveryAddress::where('user_id',$user_id)->update(['name'=>$data['shipping_name'],'address'=>$data['shipping_address'],
-          'city'=>$data['shipping_city'],'state'=>$data['shipping_state'],'pincode'=>$data['shipping_pincode'],
-          'country'=>$data['shipping_country'],'mobile'=>$data['shipping_mobile']]);
-        }else{
-          //New Shipping Address
-          $shipping = new DeliveryAddress;
-          $shipping->user_id = $user_id;
-          $shipping->user_email = $user_email;
-          $shipping->name = $data['shipping_name'];
-          $shipping->address = $data['shipping_address'];
-          $shipping->city = $data['shipping_city'];
-          $shipping->state = $data['shipping_state'];
-          $shipping->pincode = $data['shipping_pincode'];
-          $shipping->country = $data['shipping_country'];
-          $shipping->mobile = $data['shipping_mobile'];
-          $shipping->save();
+            if($shippingCount>0){
+              //Update Shipping Address
+              DeliveryAddress::where('user_id',$user_id)->update(['name'=>$data['shipping_name'],'address'=>$data['shipping_address'],
+              'city'=>$data['shipping_city'],'state'=>$data['shipping_state'],'pincode'=>$data['shipping_pincode'],
+              'country'=>$data['shipping_country'],'mobile'=>$data['shipping_mobile']]);
+            }else{
+              //New Shipping Address
+              $shipping = new DeliveryAddress;
+              $shipping->user_id = $user_id;
+              $shipping->user_email = $user_email;
+              $shipping->name = $data['shipping_name'];
+              $shipping->address = $data['shipping_address'];
+              $shipping->city = $data['shipping_city'];
+              $shipping->state = $data['shipping_state'];
+              $shipping->pincode = $data['shipping_pincode'];
+              $shipping->country = $data['shipping_country'];
+              $shipping->mobile = $data['shipping_mobile'];
+              $shipping->save();
+            }
+            return redirect()->action('ProductsController@orderReview');    
         }
-         return redirect()->action('ProductsController@orderReview');
-        }
-        return view('products.checkout')->with(compact('userDetails','countries','shippingDetails'));
-
+        $result['zones'] = DB::table('zones')->get();
+        $result['wards'] = DB::table('wards')->get();
+        return view('products.checkout')->with(compact('userDetails','countries','shippingDetails','result'));
     }
 
     public function paymentComponent(Request $request){
@@ -708,13 +708,60 @@ class ProductsController extends Controller
         $shippingDetails =json_decode(json_encode($shippingDetails));
 
         $userCart = DB::table('cart')->where(['user_email'=>$user_email])->get();
+        $final_price = 0;
         foreach($userCart as $key =>$product){
-        $productDetails = Product::where('id',$product->product_id)->first();
-        $userCart[$key]->image = $productDetails->image;
+            $productDetails = Product::where('id',$product->product_id)->first();
+            $userCart[$key]->image = $productDetails->image;
+            $final_price = $productDetails->price * $product->quantity;
         }
         //payment methods
         $result['payment_methods'] = $this->getPaymentMethods();
+        // get giaoHangTietKiem
+        $pick_province = 'Thành phố Hồ Chí Minh';
+        $pick_district = 'Quận 7';
+        // total_weight use Kilogram or Lit
+        $weight = 1000;
+        $address = $shippingDetails->address .','.$shippingDetails->city;
+        // session(['total_weight' => $weight]);
+        $condition = [
+            "pick_province" => $pick_province,
+            "pick_district" => $pick_district,
+            "province" => $shippingDetails->country,
+            "district" => $shippingDetails->state,
+            "address" => $address,
+            "weight" => $weight,
+            "value" => $final_price,
+            "transport" => "fly"
+        ];
+
+        $rw = $this->calDeliveryGHTT(http_build_query($condition));
+        if (data_get($rw, 'fee.delivery')) {
+            session(['delivery_fee' => data_get($rw, 'fee.fee')]);
+        } else {
+            session(['delivery_fee' => false]);
+        }
         return view('products.order_review')->with(compact('userDetails','shippingDetails','userCart','result'));
+    }
+
+    private function calDeliveryGHTT($query) {
+        $token = '1d5261338ACE773eEE972c038E80B355cFC604D5';
+        $url = "https://services.giaohangtietkiem.vn/services/shipment/fee?". $query;
+
+        $curl = curl_init();
+        curl_setopt_array($curl, array(
+            CURLOPT_URL => $url,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => "GET",
+            CURLOPT_HTTPHEADER => array(
+                "Content-Type: application/json",
+                "Token: " . $token,
+            ),
+        ));
+
+        $response = curl_exec($curl);
+        curl_close($curl);
+        return json_decode($response, true);
     }
 
     private function checkSingatureMomoCallback($request) {
@@ -810,6 +857,7 @@ class ProductsController extends Controller
                 $cartPro->product_qty = $pro->quantity;
                 $cartPro->save();
             }
+            DB::table('cart')->where(['user_email'=>$user_email])->delete();
             return redirect('/');  
         // }
     }

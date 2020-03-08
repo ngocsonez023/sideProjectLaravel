@@ -59,6 +59,10 @@ Route::post('/user-login','UsersController@login');
 //User LogOut Route
 Route::get('user-logout','UsersController@logout');
 
+//get address
+Route::get('/getaddress','Controller@getaddress');
+Route::get('/getward','Controller@getward');
+
 //All Routes after login
 Route::group(['middleware' => ['frontlogin']],function(){
 	//User account Page

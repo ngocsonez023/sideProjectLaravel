@@ -1511,7 +1511,7 @@ h2.title {
 	font-size: 16px;
 	height: 50px;
 	line-height: 50px;
-	margin-top: 75px;
+	margin-top: 178px;
 	text-align: center;
 	width: 50px;
 }
@@ -2518,5 +2518,11 @@ h2.title {
 .contact-info .social-networks ul li a:hover{
   color: #FE980F;
 }
-
+.product-image-wrapper .single-products img{
+  transition: all 0.5s;
+}
+.product-image-wrapper .single-products img:hover{
+  transform: scale(1.15);
+  transition: all 0.5s;
+}
 

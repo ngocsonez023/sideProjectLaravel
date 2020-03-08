@@ -20,9 +20,9 @@
                         {{$userDetails->address}}
                     </div>
                     <div class="form-group">
-                       {{$userDetails->city}}
-                   </div>
-                   <div class="form-group">
+                     {{$userDetails->city}}
+                 </div>
+                 <div class="form-group">
                     {{$userDetails->state}}
                 </div>
                 <div class="form-group">
@@ -140,9 +140,19 @@
                                     </td>										
                                 </tr>
                                 <tr>
+                                    <td>Phí giao hàng</td>
+                                    <td>
+                                        @if (!empty(session('delivery_fee')))                                                    
+                                        <label>{{ session('delivery_fee') }} vnd</label>
+                                        @else
+                                        <label >--- Unsupport</label>
+                                        @endif
+                                    </td>
+                                </tr>
+                                <tr>
                                     <td>Grand Total</td>
                                     <?php 
-                                    $grand_total=$total_amount - Session::get('CouponAmount');
+                                    $grand_total = $total_amount - Session::get('CouponAmount') + session('delivery_fee');
                                     session(['total_price'=>$grand_total]); ?>
                                     <td><span>PKR {{Session::get('total_price')}}</span></td>
                                 </tr>
@@ -182,7 +192,6 @@
 </section> <!--/#cart_items-->
 
 <script type="text/javascript">
-
      //paymentMethods
      function paymentMethods() {
         var payment_method = jQuery(".payment_method:checked").val();
@@ -210,6 +219,8 @@
             }
         });
     });
+
+
 </script>
 
 @endsection

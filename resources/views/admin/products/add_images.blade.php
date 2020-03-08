@@ -81,7 +81,7 @@
         <td>{{$image->product_id}}</td>
         <td><img src="{{url('images/backend_img/products/small/'.$image->image)}}" style="width:80px;"></td>
         <td>
-            <a  rel="{{$image->id}}" rel1="delete-alt-image"
+            <a  rel="{{$image->id}}" rel1="delete-alt-image" url="{{url('')}}"
             href="javascript:" class="btn btn-danger btn-mini deleteRecord">Delete</a>
         </td>
         </tr>

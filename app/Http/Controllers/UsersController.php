@@ -90,7 +90,9 @@ class UsersController extends Controller
             return redirect()->back()->with('flash_message_success','Your Account Detail has been Successfully Updated!!');
 
         }
-        return view('users.account')->with(compact('countries','userDetails'));
+        $result['zones'] = DB::table('zones')->get();
+        $result['wards'] = DB::table('wards')->get();
+        return view('users.account')->with(compact('countries','userDetails','result'));
     }
     public function chkUserPassword(Request $request){
         $data = $request->all();
