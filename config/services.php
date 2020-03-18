@@ -39,5 +39,10 @@ return [
             'tolerance' => env('STRIPE_WEBHOOK_TOLERANCE', 300),
         ],
     ],
+    'google' => [
+        'client_id'     => '938756033742-u2fmaom72ma7s5g5gf8mrm8dbnuh579n.apps.googleusercontent.com',
+        'client_secret' => 'thW680Z8Ng3pdcDf2zTkOLtH',
+        'redirect'      => 'http://localhost/sideprojectlaravel/public/login/google/callback'
+    ],
 
 ];

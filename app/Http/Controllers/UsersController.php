@@ -10,11 +10,29 @@ use Session;
 use Validator;
 use DB;
 use Illuminate\Support\Facades\Hash;
+use Socialite; 
+use Log;
+
 class UsersController extends Controller
 {
     public function userLoginRegister(){
         return view('users.login_register');  
     }
+
+    public function socialLogin($social)
+    {
+        //print_r($social);
+        log::info('yolo');
+        return Socialite::driver($social)->redirect();
+    }
+
+    public function handleSocialLoginCallback($social) {
+        log::info(print_r(Socialite::driver('google')->stateless()->user(),true));
+        if ($social == 'google') {
+            return redirect('/orders');
+        }
+    }
+
     public function login(Request $request){
         if($request->isMethod('post')){
             $data = $request->all();

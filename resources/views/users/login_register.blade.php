@@ -34,6 +34,9 @@
                     </form>
                 </div><!--/login form-->
             </div>
+            <div class="social">
+                <a href="{{url('/login/google')}}" class="btn btn-primary">Login With Google Account</a>
+            </div>
             <div class="col-sm-1">
                 <h2 class="or">OR</h2>
             </div>

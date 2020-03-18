@@ -59,6 +59,10 @@ Route::post('/user-login','UsersController@login');
 //User LogOut Route
 Route::get('user-logout','UsersController@logout');
 
+// social login
+Route::get('login/{social}', 'UsersController@socialLogin');
+Route::get('login/{social}/callback', 'UsersController@handleSocialLoginCallback');
+
 //get address
 Route::get('/getaddress','Controller@getaddress');
 Route::get('/getward','Controller@getward');

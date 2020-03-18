@@ -53,7 +53,8 @@ $(document).ready(function(){
 					$("#Availability").text("In Stock");
 				}
 			},error:function(){
-				alert("Error");
+				// alert("Error");
+				console.log('Error');
 			}
 	 });
 });
